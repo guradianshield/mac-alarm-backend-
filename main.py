@@ -2,11 +2,19 @@ import os
 import json
 import requests
 from datetime import datetime, timedelta
-from firebase_admin import credentials, firestore, initialize_app
+import firebase_admin
+from firebase_admin import credentials, firestore
 
-# Firebase başlat
-cred = credentials.Certificate('serviceAccountKey.json')
-initialize_app(cred)
+# Firebase'i environment variable'dan başlat
+firebase_creds = os.environ.get('FIREBASE_CREDENTIALS')
+if firebase_creds:
+    cred_dict = json.loads(firebase_creds)
+    cred = credentials.Certificate(cred_dict)
+    firebase_admin.initialize_app(cred)
+else:
+    cred = credentials.Certificate('serviceAccountKey.json')
+    firebase_admin.initialize_app(cred)
+
 db = firestore.client()
 
 API_KEY = os.environ.get('FOOTBALL_API_KEY')
@@ -71,36 +79,43 @@ def fetch_matches():
                         'updatedAt': datetime.utcnow().isoformat(),
                     }
                     all_matches.append(match)
-                print(f'{league_name}: {len(fixtures)} maç bulundu')
+                print(f'{league_name}: {len(fixtures)} mac bulundu')
+            else:
+                print(f'{league_name} hata: {data.get("errors")}')
         except Exception as e:
-            print(f'{league_name} hatası: {e}')
+            print(f'{league_name} hatasi: {e}')
 
     return all_matches
 
 def save_to_firestore(matches):
-    batch = db.batch()
-    count = 0
-
     # Önce eski maçları sil
     old_matches = db.collection('matches').stream()
+    batch = db.batch()
+    count = 0
     for doc in old_matches:
         batch.delete(doc.reference)
+        count += 1
+        if count % 400 == 0:
+            batch.commit()
+            batch = db.batch()
+    batch.commit()
 
     # Yeni maçları ekle
+    batch = db.batch()
+    count = 0
     for match in matches:
         ref = db.collection('matches').document(match['id'])
         batch.set(ref, match)
         count += 1
-        if count % 500 == 0:
+        if count % 400 == 0:
             batch.commit()
             batch = db.batch()
-
     batch.commit()
-    print(f'Toplam {count} maç Firestore\'a kaydedildi')
+    print(f'Toplam {count} mac Firestore\'a kaydedildi')
 
 if __name__ == '__main__':
-    print('Maçlar çekiliyor...')
+    print('Maclar cekiliyor...')
     matches = fetch_matches()
-    print(f'Toplam {len(matches)} maç bulundu')
+    print(f'Toplam {len(matches)} mac bulundu')
     save_to_firestore(matches)
-    print('Tamamlandı!')
+    print('Tamamlandi!')
