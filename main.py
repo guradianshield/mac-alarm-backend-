@@ -35,8 +35,7 @@ LEAGUE_IDS = {
 }
 
 def get_season():
-    now = datetime.now()
-    return str(now.year) if now.month >= 8 else str(now.year - 1)
+    return '2024'
 
 def fetch_matches():
     now = datetime.utcnow()
