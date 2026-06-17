@@ -12,7 +12,8 @@ if firebase_creds:
     cred = credentials.Certificate(cred_dict)
     firebase_admin.initialize_app(cred)
 else:
-    cred = credentials.Certificate('serviceAccountKey.json')
+    print('FIREBASE_CREDENTIALS bulunamadi!')
+    exit(1)
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
